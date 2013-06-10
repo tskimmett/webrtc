@@ -44,7 +44,7 @@ pubnub.publish({
 
 ## pubnub.createP2PConnection(uuid)
 
-This sets up a P2P connection to the given unique user ID. The UUID is the one given by the PubNub API after initializing and can either be set in `PUBNUB.init` or grabbed from a PubNub presence call.
+This sets up a P2P connection to the given unique user ID. The UUID is the one given by the PubNub API after initializing and can either be set in `PUBNUB.init` or grabbed from a PubNub presence call. This will more than likely be taken out in later versions of the API and automatically get called in the `publish` and `subscribe` calls. It is in here to eliminate race condition handling up front.
 
 ## pubnub.publish(options)
 
@@ -55,6 +55,14 @@ Options:
 * [message]: The string to send using WebRTC Data Channel
 * [stream]: The video or audio stream to add to the peer connection
 
+Example:
+```javascript
+pubnub.publish({
+  user: 'ABC123',
+  message: 'Hello there!'
+});
+```
+
 ## pubnub.subscribe(options)
 
 This subscribes to messages from the given user if the `user` key is used instead of `channel`.
@@ -63,6 +71,16 @@ Options:
 * user: The unique user ID to listen to
 * [callback]: The function to call when a data message is received
 * [stream]: The function to call when a video or audio stream is added to the connection
+
+Example:
+```javascript
+pubnub.subscribe({
+  user: 'ABC123',
+  callback: function (message) {
+    console.log('I got the message ', message);
+  }
+});
+```
 
 # Using the PubNub API
 
