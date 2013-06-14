@@ -9,7 +9,7 @@ Currently the API is only available through GitHub. This is because the API is c
 
 ```html
 <script type='text/javascript' src='http://cdn.pubnub.com/pubnub-*.*.*.min.js'></script>
-<script type='text/javascript' src='/path/to/webrtc.beta.pubnub-*.*.*.min.js'></script>
+<script type='text/javascript' src='/path/to/webrtc-beta-pubnub-*.*.*.min.js'></script>
 ```
 
 # Getting Started

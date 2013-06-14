@@ -6,36 +6,48 @@
   <title>Hello World</title>
 
   <script type="text/javascript" src="pubnub-3.5.1.js"></script>
+  <!--<script type="text/javascript" src="http://cdn.pubnub.com/pubnub-3.5.1.js"></script>-->
   <script type="text/javascript" src="../src/webrtc.js"></script>
 </head>
 <body>
   <h1>Hello World</h1>
 
-  <script type="text/javascript">
-    var myUuid = PUBNUB.uuid();
+  <p id="uuid"></p>
 
+  <ul id="users">
+
+  </ul>
+
+  <script type="text/javascript">
     var pubnub = PUBNUB.init({
-      publish_key: 'demo',
-      subscribe_key: 'demo',
-      uuid: myUuid
+      publish_key: 'pub-c-e26bd37f-0e9b-49db-a2d0-3ce7dada8563',
+      subscribe_key: 'sub-c-4860a7f8-ced1-11e2-b70f-02ee2ddab7fe'
     });
-    console.log("Subscribing");
+
+    var myUuid = pubnub.UUID;
+
+    document.querySelector("#uuid").innerHTML = "Your UUID is " + myUuid;
+
+    var list = document.querySelector("#users");
+
     pubnub.subscribe({
       channel: 'phonebook',
       callback: function (message) {},
       presence: function (event) {
         console.log("Presence", event);
 
-        if (event.action == "join") {
-          connectToUser(message.uuid);
-        } else if (event.action == "leave") {
-
+        if (event.uuid !== myUuid) {
+          if (event.action == "join") {
+            connectToUser(event.uuid);
+          } else if (event.action == "leave") {
+            document.querySelector('[data-uuid="' + event.uuid + '"]');
+          }
         }
       }
     });
 
     function connectToUser(uuid) {
-      var peerConnection = pubnub.createP2PConnection(uuid); // This will happen automatically in later versions
+      pubnub.createP2PConnection(uuid); // This will happen automatically in later versions
 
       pubnub.subscribe({
         user: uuid, // This tells PubNub to use WebRTC Data Channel
@@ -44,12 +56,12 @@
         }
       });
 
-      setTimeout(function () {
-        pubnub.publish({
-          user: uuid, // This tells PubNub to use WebRTC Data Channel
-          message: "Hello World!"
-        });
-      }, 3000);
+      pubnub.publish({
+        user: uuid, // This tells PubNub to use WebRTC Data Channel
+        message: "Hello World!"
+      });
+
+      list.innerHTML += "<li data-uuid='" + uuid + "'>" + uuid + "</li>";
     };
   </script>
 </body>
