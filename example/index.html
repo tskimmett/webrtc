@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+
+  <title>Hello World</title>
+
+  <script type="text/javascript" src="pubnub-3.5.1.js"></script>
+  <script type="text/javascript" src="../src/webrtc.js"></script>
+</head>
+<body>
+  <h1>Hello World</h1>
+
+  <script type="text/javascript">
+    var myUuid = PUBNUB.uuid();
+
+    var pubnub = PUBNUB.init({
+      publish_key: 'demo',
+      subscribe_key: 'demo',
+      uuid: myUuid
+    });
+    console.log("Subscribing");
+    pubnub.subscribe({
+      channel: 'phonebook',
+      callback: function (message) {},
+      presence: function (event) {
+        console.log("Presence", event);
+
+        if (event.action == "join") {
+          connectToUser(message.uuid);
+        } else if (event.action == "leave") {
+
+        }
+      }
+    });
+
+    function connectToUser(uuid) {
+      var peerConnection = pubnub.createP2PConnection(uuid); // This will happen automatically in later versions
+
+      pubnub.subscribe({
+        user: uuid, // This tells PubNub to use WebRTC Data Channel
+        callback: function (message) {
+          console.log("I got the message: ", message);
+        }
+      });
+
+      setTimeout(function () {
+        pubnub.publish({
+          user: uuid, // This tells PubNub to use WebRTC Data Channel
+          message: "Hello World!"
+        });
+      }, 3000);
+    };
+  </script>
+</body>
+</html>
