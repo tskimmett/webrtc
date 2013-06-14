@@ -1,7 +1,7 @@
 /*! webrtc-beta-pubnub - v0.0.1 - 2013-06-14
 * Copyright (c) 2013 ; Licensed  */
 (function (window, PUBNUB) {
-  "use strict";
+  //"use strict";
 
   // Global error handling function
   function error(message) {
@@ -151,7 +151,12 @@
 
           PEER_CONNECTIONS[uuid].dataChannel.onmessage = function (event) {
             debug("Got data channel message", event.data);
-            if (PEER_CONNECTIONS[uuid].callback) PEER_CONNECTIONS[uuid].callback(event.data, event);
+            if (PEER_CONNECTIONS[uuid].callback) {
+              PEER_CONNECTIONS[uuid].callback(event.data, event);
+            } else {
+              // If the user has not subscribed to messages just save them for history later
+              PEER_CONNECTIONS[uuid].history.push(event.data);
+            }
           };
 
           event.channel.onopen = function (event) {
@@ -180,11 +185,11 @@
         PEER_CONNECTIONS[uuid] = {
           stream: null,
           callback: null,
-          //dataChannel: dc,
           connection: pc,
           candidates: [],
           connected: false,
-          signalingChannel: signalingChannel
+          signalingChannel: signalingChannel,
+          history: []
         };
 
         if (offer != false) {
@@ -247,20 +252,18 @@
               type: PUBLISH_TYPE.STREAM,
               stream: options.stream
             });
-            //PEER_CONNECTIONS[options.user].connection.addStream(options.stream);
           } else if (options.message != null) {
             PUBLISH_QUEUE[options.user].push({
               type: PUBLISH_TYPE.MESSAGE,
               message: options.message
             });
-            //PEER_CONNECTIONS[options.user].dataChannel.send(options.message);
           } else {
             error("Stream or message key not found in argument object. One or the other must be provided for RTC publish calls!");
           }
 
           this._peerPublish(options.user);
         } else {
-          _super.apply(this, arguments);
+          return _super.apply(this, arguments);
         }
       };
     })(PUBNUB['publish']);
@@ -290,10 +293,31 @@
             connection.callback = options.callback;
           }
         } else {
-          _super.apply(this, arguments);
+          return _super.apply(this, arguments);
         }
       }
     })(PUBNUB['subscribe']);
+
+    // PUBNUB.history overload
+    API['history'] = (function (_super) {
+      return function (options) {
+        if (options == null) {
+          error("You must send an object when using PUBNUB.history!");
+        }
+
+        if (options.user != null) {
+          if (options.callback) {
+            var history = PEER_CONNECTIONS[options.user].history;
+
+            callback([history]);
+          } else {
+            error("No callback provided for PUBNUB.history");
+          }
+        } else {
+          return _super.apply(this, arguments);
+        }
+      }
+    })(PUBNUB['history']);
 
     return extend(PUBNUB, API);
   };

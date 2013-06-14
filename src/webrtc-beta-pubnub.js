@@ -1,5 +1,5 @@
 (function (window, PUBNUB) {
-  "use strict";
+  //"use strict";
 
   // Global error handling function
   function error(message) {
@@ -149,7 +149,12 @@
 
           PEER_CONNECTIONS[uuid].dataChannel.onmessage = function (event) {
             debug("Got data channel message", event.data);
-            if (PEER_CONNECTIONS[uuid].callback) PEER_CONNECTIONS[uuid].callback(event.data, event);
+            if (PEER_CONNECTIONS[uuid].callback) {
+              PEER_CONNECTIONS[uuid].callback(event.data, event);
+            } else {
+              // Store it in the history so the user can still get to it
+              PEER_CONNECTIONS[uuid].history.push(event.data);
+            }
           };
 
           event.channel.onopen = function (event) {
@@ -178,11 +183,11 @@
         PEER_CONNECTIONS[uuid] = {
           stream: null,
           callback: null,
-          //dataChannel: dc,
           connection: pc,
           candidates: [],
           connected: false,
-          signalingChannel: signalingChannel
+          signalingChannel: signalingChannel,
+          history: []
         };
 
         if (offer != false) {
@@ -194,7 +199,6 @@
           });
 
           pc.createOffer(function (description) {
-            debug("Description", description);
             self.gotDescription(description, PEER_CONNECTIONS[uuid]);
           });
         }
@@ -205,7 +209,6 @@
 
     // Helper function for sending messages with different types.
     function handleMessage(connection, message) {
-      debug("Sending message", message);
       if (message.type == PUBLISH_TYPE.STREAM) {
         connection.connection.addStream(message.stream);
       } else if (message.type == PUBLISH_TYPE.MESSAGE) {
@@ -219,7 +222,6 @@
     // Handles requesting a peer connection and emptying the queue when connected.
     API['_peerPublish'] = function (uuid) {
       if (PUBLISH_QUEUE[uuid] && PUBLISH_QUEUE[uuid].length > 0) {
-        debug("Connected status", PEER_CONNECTIONS[uuid].connected);
         if (PEER_CONNECTIONS[uuid].connected == true) {
           handleMessage(PEER_CONNECTIONS[uuid], PUBLISH_QUEUE[uuid].shift());
           this._peerPublish(uuid);
@@ -292,6 +294,27 @@
         }
       }
     })(PUBNUB['subscribe']);
+
+    // PUBNUB.history overload
+    API['history'] = (function (_super) {
+      return function (options) {
+        if (options == null) {
+          error("You must send an object when using PUBNUB.history!");
+        }
+
+        if (options.user != null) {
+          if (options.callback) {
+            var history = PEER_CONNECTIONS[options.user].history;
+
+            options.callback([history]);
+          } else {
+            error("No callback provided for PUBNUB.history");
+          }
+        } else {
+          return _super.apply(this, arguments);
+        }
+      }
+    })(PUBNUB['history']);
 
     return extend(PUBNUB, API);
   };
