@@ -44,7 +44,12 @@ module.exports = function(grunt) {
         boss: true,
         eqnull: true,
         browser: true,
-        globals: {}
+        globals: {
+          console: true,
+          RTCSessionDescription: true,
+          RTCIceCandidate: true,
+          PUBNUB: true
+        }
       },
       gruntfile: {
         src: 'Gruntfile.js'
