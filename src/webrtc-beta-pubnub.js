@@ -111,6 +111,8 @@
             if (connected === false) {
               connection.connection.createAnswer(function (description) {
                 PUBNUB.gotDescription(description, connection);
+              }, function (err) {
+                error(err);
               });
             }
           }, function (err) {
