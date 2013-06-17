@@ -220,6 +220,8 @@
 
           pc.createOffer(function (description) {
             self.gotDescription(description, PEER_CONNECTIONS[uuid]);
+          }, function (err) {
+            error(err);
           });
         }
       } else {
