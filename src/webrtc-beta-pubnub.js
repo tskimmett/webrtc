@@ -1,6 +1,20 @@
 (function (window, PUBNUB) {
   //"use strict";
 
+  // Remove vendor prefixes
+  var IS_CHROME = !!window.webkitRTCPeerConnection;
+
+  if (IS_CHROME) {
+    window.RTCPeerConnection = webkitRTCPeerConnection;
+    //RTCIceCandidate = webkitRTCIceCandidate;
+    //RTCSessionDescription = webkitRTCSessionDescription;
+  }
+  else {
+    window.RTCPeerConnection = mozRTCPeerConnection;
+    window.RTCIceCandidate = mozRTCIceCandidate;
+    window.RTCSessionDescription = mozRTCSessionDescription;
+  }
+
   // Global error handling function
   function error(message) {
     console['error'](message);
@@ -32,17 +46,17 @@
     return u;
   }
 
-  // Polyfill support for web rtc protocols
-  var RTCPeerConnection = window.webkitRTCPeerConnection ||
-    window.mozRTCPeerConnection ||
-    RTCPeerConnection;
-
   function extendAPI(PUBNUB, uuid) {
-    // Store out API so we can extend it on all instnaces.
+    // Store out API so we can extend it on all instances.
     var API = {},
         PREFIX = "pn_",               // Prefix for subscribe channels
         PEER_CONNECTIONS = {},        // Connection storage by uuid
         RTC_CONFIGURATION = null,     // Global config for RTC's
+		    PC_OPTIONS = (IS_CHROME ? {
+		      optional: [
+				  { RtpDataChannels: true }
+		      ]
+		    } : {}),
         UUID = uuid,                  // The current user's UUID
         PUBLISH_QUEUE = {},           // The queue of messages to send by UUID
         PUBLISH_TYPE = {              // Publish type enum
@@ -85,20 +99,24 @@
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (message.sdp != null) {
-          connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+          connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
 
-          // Add ice candidates we might have gotten early.
-          for (var i = 0; i < connection.candidates; i++) {
-            connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
-            connection.candidates = [];
-          }
+            // Add ice candidates we might have gotten early.
+            for (var i = 0; i < connection.candidates; i++) {
+              connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
+              connection.candidates = [];
+            }
 
-          // If we did not create the offer then create the answer.
-          if (connected === false) {
-            connection.connection.createAnswer(function (description) {
-              PUBNUB.gotDescription(description, connection);
-            });
-          }
+            // If we did not create the offer then create the answer.
+            if (connected === false) {
+              connection.connection.createAnswer(function (description) {
+                PUBNUB.gotDescription(description, connection);
+              });
+            }
+          }, function (err) {
+            // Maybe notify the peer that we can't communicate
+            error("Error setting remote description: " + err.message);
+          });
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
             connection.connection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -144,7 +162,7 @@
     // Signals and creates a P2P connection between two users.
     API['createP2PConnection'] = function (uuid, offer) {
       if (PEER_CONNECTIONS[uuid] == null) {
-        var pc = new RTCPeerConnection(RTC_CONFIGURATION, {optional:[{RtpDataChannels:true}]}),
+        var pc = new RTCPeerConnection(RTC_CONFIGURATION, PC_OPTIONS),
             signalingChannel = new SignalingChannel(this, UUID, uuid),
             self = this;
 
