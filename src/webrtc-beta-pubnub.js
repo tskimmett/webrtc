@@ -9,8 +9,8 @@
 
   if (IS_CHROME) {
     RTCPeerConnection = webkitRTCPeerConnection;
-    //RTCIceCandidate = webkitRTCIceCandidate;
-    //RTCSessionDescription = webkitRTCSessionDescription;
+    RTCIceCandidate = RTCIceCandidate;
+    RTCSessionDescription = RTCSessionDescription;
   }
   else {
     RTCPeerConnection = mozRTCPeerConnection;
