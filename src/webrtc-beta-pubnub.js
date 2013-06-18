@@ -9,10 +9,9 @@
 
   if (IS_CHROME) {
     RTCPeerConnection = webkitRTCPeerConnection;
-    //RTCIceCandidate = webkitRTCIceCandidate;
-    //RTCSessionDescription = webkitRTCSessionDescription;
-  }
-  else {
+    RTCIceCandidate = window.RTCIceCandidate;
+    RTCSessionDescription = window.RTCSessionDescription;
+  } else {
     RTCPeerConnection = mozRTCPeerConnection;
     RTCIceCandidate = mozRTCIceCandidate;
     RTCSessionDescription = mozRTCSessionDescription;
@@ -358,9 +357,8 @@
           if (connection.history.length > 0) {
             for (var i = 0; i < connection.history.length; i++) {
               var message = connection.history[i];
-              if (message.type === PUBLISH_TYPE.STREAM && options.stream) {
-                options.stream(message);
-              } else if (message.type === PUBLISH_TYPE.MESSAGE && options.callback) {
+
+              if (options.callback) {
                 options.callback(message);
               }
             }
