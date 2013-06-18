@@ -112,12 +112,15 @@
               connection.connection.createAnswer(function (description) {
                 PUBNUB.gotDescription(description, connection);
               }, function (err) {
+                // Connection failed, so delete it from the table
+                delete PEER_CONNECTIONS[message.uuid];
                 error(err);
               });
             }
           }, function (err) {
-            // Maybe notify the peer that we can't communicate
-            error("Error setting remote description: " + err.message);
+            // Connection failed, so delete it from the table
+            delete PEER_CONNECTIONS[message.uuid];
+            error(err);
           });
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
@@ -223,6 +226,8 @@
           pc.createOffer(function (description) {
             self.gotDescription(description, PEER_CONNECTIONS[uuid]);
           }, function (err) {
+            // Connection failed, so delete it from the table
+            delete PEER_CONNECTIONS[uuid];
             error(err);
           });
         }
