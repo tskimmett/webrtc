@@ -48,6 +48,12 @@
     return u;
   }
 
+  function transformOutgoingSdp(sdp) {
+    var splitted = sdp.split("b=AS:30");
+    var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
+    return newSDP;
+  }
+
   function extendAPI(PUBNUB, uuid) {
     // Store out API so we can extend it on all instances.
     var API = {},
@@ -156,6 +162,10 @@
     // PUBNUB._gotDescription
     // This is the handler for when we get a SDP description from the WebRTC API.
     API['gotDescription'] = function (description, connection) {
+      /***
+       * CHROME HACK TO GET AROUND BANDWIDTH LIMITATION ISSUES
+       ***/
+      description.sdp = transformOutgoingSdp(description.sdp);
       connection.connection.setLocalDescription(description);
       debug("Sending description", connection.signalingChannel);
       connection.signalingChannel.send({
