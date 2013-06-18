@@ -1,5 +1,22 @@
 (function (window, PUBNUB) {
-  "use strict";
+  //"use strict";
+
+  // Remove vendor prefixes
+  var IS_CHROME = !!window.webkitRTCPeerConnection,
+      RTCPeerConnection,
+      RTCIceCandidate,
+      RTCSessionDescription;
+
+  if (IS_CHROME) {
+    RTCPeerConnection = webkitRTCPeerConnection;
+    //RTCIceCandidate = webkitRTCIceCandidate;
+    //RTCSessionDescription = webkitRTCSessionDescription;
+  }
+  else {
+    RTCPeerConnection = mozRTCPeerConnection;
+    RTCIceCandidate = mozRTCIceCandidate;
+    RTCSessionDescription = mozRTCSessionDescription;
+  }
 
   // Global error handling function
   function error(message) {
@@ -9,8 +26,10 @@
   // Global info logging
   var isDebug = true;
   function debug() {
-    if (isDebug === true) console['log'].apply(console, arguments);
-  };
+    if (isDebug === true) {
+      console['log'].apply(console, arguments);
+    }
+  }
 
   // Extend function for adding to existing objects
   function extend(obj, other) {
@@ -18,31 +37,33 @@
       obj[key] = other[key];
     }
     return obj;
-  };
+  }
 
   // Putting UUID function here to work around non-exposed ID issues.
   function generateUUID() {
     var u = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,
     function(c) {
-        var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+        var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
         return v.toString(16);
     });
     return u;
-  };
-
-  // Polyfill support for web rtc protocols
-  var RTCPeerConnection = window.webkitRTCPeerConnection ||
-    window.mozRTCPeerConnection ||
-    RTCPeerConnection;
+  }
 
   function extendAPI(PUBNUB, uuid) {
-    // Store out API so we can extend it on all instnaces.
+    // Store out API so we can extend it on all instances.
     var API = {},
         PREFIX = "pn_",               // Prefix for subscribe channels
         PEER_CONNECTIONS = {},        // Connection storage by uuid
         RTC_CONFIGURATION = null,     // Global config for RTC's
+        PC_OPTIONS = (IS_CHROME ? {
+          optional: [
+          { RtpDataChannels: true }
+          ]
+        } : {}),
         UUID = uuid,                  // The current user's UUID
         PUBLISH_QUEUE = {},           // The queue of messages to send by UUID
+        CONNECTED = false,            // If we have connected to the personal channel yet
+        CONNECTION_QUEUE = [],        // Any createP2PConnection calls we get before we connect
         PUBLISH_TYPE = {              // Publish type enum
           STREAM: 1,
           MESSAGE: 2
@@ -66,35 +87,43 @@
           message: message
         });
       };
-    };
+    }
 
     function personalChannelCallback(message) {
       message = JSON.parse(message);
       debug("Got message", message);
       
       if (message.uuid != null) {
-        var connected = PEER_CONNECTIONS[message.uuid] != null;
+        var connected = PEER_CONNECTIONS[message.uuid] != null && PEER_CONNECTIONS[message.uuid].initialized === true;
 
         // Setup the connection if we do not have one already.
-        if (connected == false) PUBNUB.createP2PConnection(message.uuid, false);
+        if (connected === false) {
+          PUBNUB.createP2PConnection(message.uuid, false);
+        }
 
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (message.sdp != null) {
-          connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+          connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
 
-          // Add ice candidates we might have gotten early.
-          for (var i = 0; i < connection.candidates; i++) {
-            connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
-            connection.candidates = [];
-          }
+            // Add ice candidates we might have gotten early.
+            for (var i = 0; i < connection.candidates; i++) {
+              connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
+              connection.candidates = [];
+            }
 
-          // If we did not create the offer then create the answer.
-          if (connected == false) {
-            connection.connection.createAnswer(function (description) {
-              PUBNUB.gotDescription(description, connection);
-            });
-          }
+            // If we did not create the offer then create the answer.
+            if (connected === false) {
+              connection.connection.createAnswer(function (description) {
+                PUBNUB.gotDescription(description, connection);
+              }, function (err) {
+                error(err);
+              });
+            }
+          }, function (err) {
+            // Maybe notify the peer that we can't communicate
+            error("Error setting remote description: " + err.message);
+          });
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
             connection.connection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -107,21 +136,17 @@
     }
 
     // Subscribe to our own personal channel to listen for data.
-    debug("Subscribing to personal channel");
     PUBNUB.subscribe({
       channel: PREFIX + uuid,
-      connect: function (event) {
-        PUBNUB.history({
-          count: 1000,
-          channel: PREFIX + uuid,
-          callback: function (message) {
-            debug("History:", message);
-            var messages = message[0];
-            for (var i = 0; i < messages.length; i++) {
-              personalChannelCallback(messages[i]);
-            }
-          }
-        });
+      connect: function () {
+        CONNECTED = true;
+
+        for (var i = 0; i < CONNECTION_QUEUE.length; i++) {
+          var args = CONNECTION_QUEUE[i];
+          PUBNUB.createP2PConnection.apply(PUBNUB, args);
+        }
+
+        CONNECTION_QUEUE = [];
       },
       callback: personalChannelCallback
     });
@@ -139,17 +164,37 @@
     // PUBNUB.createP2PConnection
     // Signals and creates a P2P connection between two users.
     API['createP2PConnection'] = function (uuid, offer) {
-      if (PEER_CONNECTIONS[uuid] == null) {
-        var pc = new RTCPeerConnection(RTC_CONFIGURATION, {optional:[{RtpDataChannels:true}]}),
+      if (CONNECTED === false) {
+        CONNECTION_QUEUE.push([uuid, offer]);
+        return false;
+      }
+
+      if (PEER_CONNECTIONS[uuid] == null || PEER_CONNECTIONS[uuid].initialized === false) {
+        var pc = new RTCPeerConnection(RTC_CONFIGURATION, PC_OPTIONS),
             signalingChannel = new SignalingChannel(this, UUID, uuid),
             self = this;
 
-        function onDataChannelCreated(event) {
+        var onDataChannelCreated = function (event) {
           PEER_CONNECTIONS[uuid].dataChannel = event.channel;
 
           PEER_CONNECTIONS[uuid].dataChannel.onmessage = function (event) {
             debug("Got data channel message", event.data);
-            if (PEER_CONNECTIONS[uuid].callback) PEER_CONNECTIONS[uuid].callback(event.data, event);
+            if (PEER_CONNECTIONS[uuid].callback) {
+              PEER_CONNECTIONS[uuid].callback(event.data, event);
+            } else {
+              // Store it in the history so the user can still get to it
+              PEER_CONNECTIONS[uuid].history.push(event.data);
+            }
+          };
+
+          PEER_CONNECTIONS[uuid].onaddstream = function (event) {
+            debug("Got data channel stream", event.data);
+            if (PEER_CONNECTIONS[uuid].stream) {
+              PEER_CONNECTIONS[uuid].stream(event.data, event);
+            } else {
+              // Store it in the history so the user can still get to it
+              PEER_CONNECTIONS[uuid].history.push(event.data);
+            }
           };
 
           event.channel.onopen = function (event) {
@@ -167,35 +212,36 @@
           }
         };
 
-        pc.oniceconnectionstatechange = function (event) {
-          if (pc.iceConnectionState == "connected") {
+        pc.oniceconnectionstatechange = function () {
+          if (pc.iceConnectionState === "connected") {
             // Nothing for now
           }
         };
 
-        PUBLISH_QUEUE[uuid] = [];
+        PUBLISH_QUEUE[uuid] = PUBLISH_QUEUE[uuid] || [];
 
-        PEER_CONNECTIONS[uuid] = {
-          stream: null,
-          callback: null,
-          //dataChannel: dc,
+        PEER_CONNECTIONS[uuid] = PEER_CONNECTIONS[uuid] || {};
+        PEER_CONNECTIONS[uuid] = extend(PEER_CONNECTIONS[uuid], {
+          //stream: null,
+          //callback: null,
           connection: pc,
           candidates: [],
           connected: false,
+          initialized: true,
           signalingChannel: signalingChannel
-        };
+        });
+        PEER_CONNECTIONS[uuid].history = PEER_CONNECTIONS[uuid].history || [];
 
-        if (offer != false) {
-          var self = this;
-
+        if (offer !== false) {
           var dc = pc.createDataChannel("pubnub", { reliable: false });
           onDataChannelCreated({
             channel: dc
           });
 
           pc.createOffer(function (description) {
-            debug("Description", description);
             self.gotDescription(description, PEER_CONNECTIONS[uuid]);
+          }, function (err) {
+            error(err);
           });
         }
       } else {
@@ -205,22 +251,21 @@
 
     // Helper function for sending messages with different types.
     function handleMessage(connection, message) {
-      debug("Sending message", message);
-      if (message.type == PUBLISH_TYPE.STREAM) {
+      if (message.type === PUBLISH_TYPE.STREAM) {
         connection.connection.addStream(message.stream);
-      } else if (message.type == PUBLISH_TYPE.MESSAGE) {
+      } else if (message.type === PUBLISH_TYPE.MESSAGE) {
+        debug("Sending message", message);
         connection.dataChannel.send(message.message);
       } else {
         error("Unrecognized RTC message type: " + message.type);
       }
-    };
+    }
 
     // PUBNUB._peerPublish
     // Handles requesting a peer connection and emptying the queue when connected.
     API['_peerPublish'] = function (uuid) {
       if (PUBLISH_QUEUE[uuid] && PUBLISH_QUEUE[uuid].length > 0) {
-        debug("Connected status", PEER_CONNECTIONS[uuid].connected);
-        if (PEER_CONNECTIONS[uuid].connected == true) {
+        if (PEER_CONNECTIONS[uuid].connected === true) {
           handleMessage(PEER_CONNECTIONS[uuid], PUBLISH_QUEUE[uuid].shift());
           this._peerPublish(uuid);
         } else {
@@ -232,6 +277,20 @@
       }
     };
 
+    // Method for creating a stub connection in case we have not connected yet.
+    function createStubConnection (uuid) {
+      PUBLISH_QUEUE[uuid] = PUBLISH_QUEUE[uuid] || [];
+
+      PEER_CONNECTIONS[uuid] = {
+        initialized: false,
+        stream: null,
+        callback: null,
+        candidates: [],
+        connected: false,
+        history: []
+      };
+    }
+
     // PUBNUB.publish overload
     API['publish'] = (function (_super) {
       return function (options) {
@@ -240,6 +299,11 @@
         }
 
         if (options.user != null) {
+          // Setup the connection if it does not exist
+          if (PEER_CONNECTIONS[options.user] == null) {
+            createStubConnection(options.user);
+          }
+
           if (options.stream != null) {
             PUBLISH_QUEUE[options.user].push({
               type: PUBLISH_TYPE.STREAM,
@@ -271,30 +335,65 @@
         }
 
         if (options.user != null) {
-          var self = this,
-              connection = PEER_CONNECTIONS[options.user];
+          // Setup the connection if it does not exist
+          if (PEER_CONNECTIONS[options.user] == null) {
+            createStubConnection(options.user);
+          }
+
+          var connection = PEER_CONNECTIONS[options.user];
           debug(PEER_CONNECTIONS, options.user, connection);
 
           if (options.stream) {
             // Setup the stream added listener
             connection.stream = options.stream;
-            connection.connection.onaddstream = function (event) {
-              if (connection.stream) connection.stream(event.stream, event);
-            };
           }
 
           if (options.callback) {
             // Setup the data channel callback listener
             connection.callback = options.callback;
           }
+
+          // Replay the backfilled messages if they exist
+          debug("Subscribing!", connection.history);
+          if (connection.history.length > 0) {
+            for (var i = 0; i < connection.history.length; i++) {
+              var message = connection.history[i];
+              if (message.type === PUBLISH_TYPE.STREAM && options.stream) {
+                options.stream(message);
+              } else if (message.type === PUBLISH_TYPE.MESSAGE && options.callback) {
+                options.callback(message);
+              }
+            }
+          }
         } else {
           _super.apply(this, arguments);
         }
-      }
+      };
     })(PUBNUB['subscribe']);
 
+    // PUBNUB.history overload
+    API['history'] = (function (_super) {
+      return function (options) {
+        if (options == null) {
+          error("You must send an object when using PUBNUB.history!");
+        }
+
+        if (options.user != null) {
+          if (options.callback) {
+            var history = PEER_CONNECTIONS[options.user].history || [[]];
+
+            options.callback([history]);
+          } else {
+            error("No callback provided for PUBNUB.history");
+          }
+        } else {
+          return _super.apply(this, arguments);
+        }
+      };
+    })(PUBNUB['history']);
+
     return extend(PUBNUB, API);
-  };
+  }
 
   // PUBNUB init overload
   PUBNUB['init'] = (function (_super) {

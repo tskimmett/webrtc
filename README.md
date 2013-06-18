@@ -1,11 +1,15 @@
-PubNub WebRTC Beta API v0.0.1
+PubNub WebRTC Beta API v0.3.0
 ======
 
-PubNub now offers a new API for enhancing your WebRTC applications with the power of PubNub. Our WebRTC API will perform signaling between users and also add features such as history, presence, and more.
+PubNub now offers a new API for enhancing your WebRTC applications with the power of PubNub. Our WebRTC API will perform signaling between your users to allow them to connect with a RTCPeerConnection. From there you can use the PubNub API to enhance your peer application with features such as presence and history. PubNub Presence will allow you to find what users are connected to your application and give you a phonebook of people to connect to. You can also use history to see what connections you have made and reconnect to people from the past.
+
+Read more about the [PubNub API](http://pubnub.com)
 
 # Installation
 
-Currently the API is only available through GitHub. This is because the API is changing daily and we would like everyone to be on the latest version. Just clone this repo and copy the `webrtc.beta.pubnub-*.*.*.js` from the bin/ folder into your app to get started. Be sure to add this after you include the PubNub API like so:
+As a prequisite you will need a PubNub API account. You can sign up for a free account at [pubnub.com](http://pubnub.com). From there you will also need to use the administration tool to enable history, presence, and elastic message sizes. Then grab your publish and subscribe key and follow the instructions below.
+
+Currently the API is only available through GitHub. This is because the API is changing daily and we would like everyone to be on the latest version. Just clone this repo and copy the `webrtc.beta.pubnub-*.*.*.js` from the bin/ folder into your app to get started. Add this after adding the standard PubNub library like so:
 
 ```html
 <script type='text/javascript' src='http://cdn.pubnub.com/pubnub-*.*.*.min.js'></script>
@@ -39,6 +43,14 @@ pubnub.publish({
   message: "Hello World!"
 });
 ```
+
+## How it Works
+
+We utilize the standard PubNub framework to perform signaling between your peer users. This manages the sending of ICE candidates as well as SDP offers. It also gives you an easy unique identifier for every user so it is easy to list and request connections from other users.
+
+## Using UUIDs
+
+Every user on the PubNub network gets assigned a unique user ID. We can use this user ID to send data between our users to establish a RTCPeerConnection. We can use PubNub presence to get these user ID's when it fires join and leave events from the APi. You can read more about presence [here](http://www.pubnub.com/solutions/features).
 
 # API Reference
 
