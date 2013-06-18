@@ -302,6 +302,11 @@
         }
 
         if (options.user != null) {
+          // Setup the connection if it does not exist
+          if (PEER_CONNECTIONS[options.user] == null) {
+            this.createP2PConnection(options.user);
+          }
+
           var connection = PEER_CONNECTIONS[options.user];
           debug(PEER_CONNECTIONS, options.user, connection);
 
