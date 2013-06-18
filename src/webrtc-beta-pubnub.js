@@ -2,17 +2,20 @@
   //"use strict";
 
   // Remove vendor prefixes
-  var IS_CHROME = !!window.webkitRTCPeerConnection;
+  var IS_CHROME = !!window.webkitRTCPeerConnection,
+      RTCPeerConnection,
+      RTCIceCandidate,
+      RTCSessionDescription;
 
   if (IS_CHROME) {
-    window.RTCPeerConnection = webkitRTCPeerConnection;
+    RTCPeerConnection = webkitRTCPeerConnection;
     //RTCIceCandidate = webkitRTCIceCandidate;
     //RTCSessionDescription = webkitRTCSessionDescription;
   }
   else {
-    window.RTCPeerConnection = mozRTCPeerConnection;
-    window.RTCIceCandidate = mozRTCIceCandidate;
-    window.RTCSessionDescription = mozRTCSessionDescription;
+    RTCPeerConnection = mozRTCPeerConnection;
+    RTCIceCandidate = mozRTCIceCandidate;
+    RTCSessionDescription = mozRTCSessionDescription;
   }
 
   // Global error handling function
@@ -52,11 +55,11 @@
         PREFIX = "pn_",               // Prefix for subscribe channels
         PEER_CONNECTIONS = {},        // Connection storage by uuid
         RTC_CONFIGURATION = null,     // Global config for RTC's
-		    PC_OPTIONS = (IS_CHROME ? {
-		      optional: [
-				  { RtpDataChannels: true }
-		      ]
-		    } : {}),
+        PC_OPTIONS = (IS_CHROME ? {
+          optional: [
+          { RtpDataChannels: true }
+          ]
+        } : {}),
         UUID = uuid,                  // The current user's UUID
         PUBLISH_QUEUE = {},           // The queue of messages to send by UUID
         CONNECTED = false,            // If we have connected to the personal channel yet
@@ -91,7 +94,7 @@
       debug("Got message", message);
       
       if (message.uuid != null) {
-        var connected = PEER_CONNECTIONS[message.uuid] != null && PEER_CONNECTIONS[message.uuid].initialized == true;
+        var connected = PEER_CONNECTIONS[message.uuid] != null && PEER_CONNECTIONS[message.uuid].initialized === true;
 
         // Setup the connection if we do not have one already.
         if (connected === false) {
@@ -135,7 +138,7 @@
     // Subscribe to our own personal channel to listen for data.
     PUBNUB.subscribe({
       channel: PREFIX + uuid,
-      connect: function (event) {
+      connect: function () {
         CONNECTED = true;
 
         for (var i = 0; i < CONNECTION_QUEUE.length; i++) {
@@ -171,7 +174,7 @@
             signalingChannel = new SignalingChannel(this, UUID, uuid),
             self = this;
 
-        function onDataChannelCreated(event) {
+        var onDataChannelCreated = function (event) {
           PEER_CONNECTIONS[uuid].dataChannel = event.channel;
 
           PEER_CONNECTIONS[uuid].dataChannel.onmessage = function (event) {
@@ -199,7 +202,7 @@
             PEER_CONNECTIONS[uuid].connected = true;
             self._peerPublish(uuid);
           };
-        }
+        };
         pc.ondatachannel = onDataChannelCreated;
 
         pc.onicecandidate = function (event) {
@@ -209,7 +212,7 @@
           }
         };
 
-        pc.oniceconnectionstatechange = function (event) {
+        pc.oniceconnectionstatechange = function () {
           if (pc.iceConnectionState === "connected") {
             // Nothing for now
           }
@@ -360,7 +363,7 @@
               } else if (message.type === PUBLISH_TYPE.MESSAGE && options.callback) {
                 options.callback(message);
               }
-            };
+            }
           }
         } else {
           _super.apply(this, arguments);

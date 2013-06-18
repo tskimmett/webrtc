@@ -17,8 +17,8 @@ module.exports = function(grunt) {
         stripBanners: true
       },
       dist: {
-        src: ['src/<%= pkg.name %>.js'],
-        dest: 'dist/<%= pkg.name %>.js'
+        src: ['src/<%= pkg.name %>.<%= pkg.version %>.js'],
+        dest: 'dist/<%= pkg.name %>.<%= pkg.version %>.js'
       }
     },
     uglify: {
@@ -27,7 +27,7 @@ module.exports = function(grunt) {
       },
       dist: {
         src: '<%= concat.dist.dest %>',
-        dest: 'dist/<%= pkg.name %>.min.js'
+        dest: 'dist/<%= pkg.name %>.<%= pkg.version %>.min.js'
       }
     },
     jshint: {
@@ -48,7 +48,11 @@ module.exports = function(grunt) {
           console: true,
           RTCSessionDescription: true,
           RTCIceCandidate: true,
-          PUBNUB: true
+          PUBNUB: true,
+          webkitRTCPeerConnection: true,
+          mozRTCPeerConnection: true,
+          mozRTCIceCandidate: true,
+          mozRTCSessionDescription: true
         }
       },
       gruntfile: {
