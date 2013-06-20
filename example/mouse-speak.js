@@ -51,7 +51,7 @@ var bind        = PUBNUB.bind
 ,   lastpos     = []   // Last Sent Position
 ,   lasttxt     = ''   // Last Sent Text
 ,   sentcnt     = 0    // Number of Messages Sent
-,   uuid        = cookie.get('uuid') || 0 // User Identification
+,   uuid        = 0//cookie.get('uuid') || 0 // User Identification
 ,   wait        = 100  // Publish Rate Limit (Time Between Data Push)
 ,   maxmsg      = 34   // Max Message Length
 ,   moffset     = 10   // Offset of Mouse Position
@@ -558,14 +558,16 @@ PUBNUB.here_now({
     callback: function (msg) {
         console.log("Here now", msg);
         for (var i = 0; i < msg.uuids.length; i++) {
-            users.push(msg.uuids[i]);
-            PUBNUB.createP2PConnection(msg.uuids[i]);
-            PUBNUB.subscribe({
-                user: msg.uuids[i],
-                callback: function (msg) {
-                    user_updated(msg);
-                }
-            });
+            if (msg.uuids[i] !== uuid) {
+                users.push(msg.uuids[i]);
+                //PUBNUB.createP2PConnection(msg.uuids[i]);
+                PUBNUB.subscribe({
+                    user: msg.uuids[i],
+                    callback: function (msg) {
+                        user_updated(msg);
+                    }
+                });
+            }
         }
     }
 });
@@ -576,14 +578,16 @@ PUBNUB.subscribe({
     presence: function (event) {
         console.log("User joined", event.uuid, event);
         if (event.action === 'join') {
-            users.push(event.uuid);
-            PUBNUB.createP2PConnection(event.uuid);
-            PUBNUB.subscribe({
-                user: event.uuid,
-                callback: function (msg, event) {
-                    user_updated(msg);
-                }
-            });
+            if (event.uuid !== uuid) {
+                users.push(event.uuid);
+                //PUBNUB.createP2PConnection(event.uuid);
+                PUBNUB.subscribe({
+                    user: event.uuid,
+                    callback: function (msg, event) {
+                        user_updated(msg);
+                    }
+                });
+            }
         }
     }
 });

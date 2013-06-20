@@ -18,8 +18,8 @@
   }
 
   // Global error handling function
-  function error(message) {
-    console['error'](message);
+  function error() {
+    console['error'].apply(console, arguments);
   }
 
   // Global info logging
@@ -99,7 +99,9 @@
       debug("Got message", message);
       
       if (message.uuid != null) {
-        var connected = PEER_CONNECTIONS[message.uuid] != null && PEER_CONNECTIONS[message.uuid].initialized === true;
+        if (message.uuid === UUID) return;
+
+        var connected = PEER_CONNECTIONS[message.uuid] != null;
 
         // Setup the connection if we do not have one already.
         if (connected === false) {
@@ -109,32 +111,38 @@
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (message.sdp != null) {
-          debug("Remote desc", PEER_CONNECTIONS[message.uuid]);
-
-          if (PEER_CONNECTIONS[message.uuid].connection.localDescription != null) {
-            PUBNUB.createP2PConnection(message.uuid, false);
+          if (connection.createdOffer === true && message.sdp.type === 'offer') {
+            connection.rand = Math.random() * 10000;
+            connection.signalingChannel.send({
+              rand: connection.rand
+            });
+            return;
           }
 
           connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
-
             // Add ice candidates we might have gotten early.
             for (var i = 0; i < connection.candidates; i++) {
               connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
               connection.candidates = [];
             }
-
+            
             // If we did not create the offer then create the answer.
-            if (connected === false) {
+            if (connection.connection.signalingState === 'have-remote-offer') {
               connection.connection.createAnswer(function (description) {
                 PUBNUB.gotDescription(description, connection);
               }, function (err) {
-                error(err);
+                error("Error creating answer: ", err);
               });
             }
           }, function (err) {
             // Maybe notify the peer that we can't communicate
-            error("Error setting remote description: " + err.message);
+            error("Error setting remote description: ", arguments);
           });
+        } else if (message.rand) {
+          if (parseInt(message.rand) < connection.rand) {
+            PEER_CONNECTIONS[message.uuid] = null;
+            PUBNUB.createP2PConnection(message.uuid);
+          }
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
             connection.connection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -154,7 +162,7 @@
 
         for (var i = 0; i < CONNECTION_QUEUE.length; i++) {
           var args = CONNECTION_QUEUE[i];
-          PUBNUB.createP2PConnection.apply(PUBNUB, args);
+          PUBNUB.gotDescription.apply(PUBNUB, args);
         }
 
         CONNECTION_QUEUE = [];
@@ -166,20 +174,20 @@
     // This is the handler for when we get a SDP description from the WebRTC API.
     API['gotDescription'] = function (description, connection) {
       connection.connection.setLocalDescription(description);
-      connection.signalingChannel.send({
-        "sdp": description
-      });
+
+      if (CONNECTED === false) {
+        CONNECTION_QUEUE.push([description, connection]);
+      } else {
+        connection.signalingChannel.send({
+          "sdp": description
+        });
+      }
     };
 
     // PUBNUB.createP2PConnection
     // Signals and creates a P2P connection between two users.
     API['createP2PConnection'] = function (uuid, offer) {
-      if (CONNECTED === false) {
-        CONNECTION_QUEUE.push([uuid, offer]);
-        return false;
-      }
-
-      if (PEER_CONNECTIONS[uuid] == null || PEER_CONNECTIONS[uuid].initialized === false) {
+      if (PEER_CONNECTIONS[uuid] == null) {
         var pc = new RTCPeerConnection(RTC_CONFIGURATION, PC_OPTIONS),
             signalingChannel = new SignalingChannel(this, UUID, uuid),
             self = this;
@@ -234,17 +242,16 @@
           }
         };
 
-        PUBLISH_QUEUE[uuid] = PUBLISH_QUEUE[uuid] || [];
+        PUBLISH_QUEUE[uuid] = [];
 
-        PEER_CONNECTIONS[uuid] = PEER_CONNECTIONS[uuid] || {};
-        PEER_CONNECTIONS[uuid] = extend(PEER_CONNECTIONS[uuid], {
+        PEER_CONNECTIONS[uuid] = {
           connection: pc,
           candidates: [],
           connected: false,
-          initialized: true,
+          createdOffer: offer !== false,
+          history: [],
           signalingChannel: signalingChannel
-        });
-        PEER_CONNECTIONS[uuid].history = PEER_CONNECTIONS[uuid].history || [];
+        };
 
         if (offer !== false) {
           var dc = pc.createDataChannel("pubnub", { reliable: false });
@@ -295,20 +302,6 @@
       }
     };
 
-    // Method for creating a stub connection in case we have not connected yet.
-    function createStubConnection (uuid) {
-      PUBLISH_QUEUE[uuid] = PUBLISH_QUEUE[uuid] || [];
-
-      PEER_CONNECTIONS[uuid] = {
-        initialized: false,
-        stream: null,
-        callback: null,
-        candidates: [],
-        connected: false,
-        history: []
-      };
-    }
-
     // PUBNUB.publish overload
     API['publish'] = (function (_super) {
       return function (options) {
@@ -319,7 +312,7 @@
         if (options.user != null) {
           // Setup the connection if it does not exist
           if (PEER_CONNECTIONS[options.user] == null) {
-            createStubConnection(options.user);
+            PUBNUB.createP2PConnection(options.user);
           }
 
           if (options.stream != null) {
@@ -355,7 +348,7 @@
         if (options.user != null) {
           // Setup the connection if it does not exist
           if (PEER_CONNECTIONS[options.user] == null) {
-            createStubConnection(options.user);
+            PUBNUB.createP2PConnection(options.user);
           }
 
           var connection = PEER_CONNECTIONS[options.user];
