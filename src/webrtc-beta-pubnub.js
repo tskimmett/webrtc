@@ -1,4 +1,3 @@
-var DEBUG;
 (function (window, PUBNUB) {
   //"use strict";
 
@@ -78,7 +77,6 @@ var DEBUG;
           STREAM: 1,
           MESSAGE: 2
         };
-    DEBUG = PEER_CONNECTIONS;
 
     // Expose PUBNUB UUID (Need to fix this in core)
     PUBNUB['UUID'] = uuid;
