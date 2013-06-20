@@ -57,7 +57,8 @@ var bind        = PUBNUB.bind
 ,   moffset     = 10   // Offset of Mouse Position
 ,   timed       = 0    // Timeout for Publish Limiter
 ,   lastsent    = 0    // Last Sent Timestamp
-,   nohtml      = /[<>]/g;
+,   nohtml      = /[<>]/g
+,   users = [];
 
 
 var Sprite = {
@@ -359,10 +360,16 @@ function send(e) {
     // Set so we won't get jittery mice.
     msg['c'] = (mice[uuid].last||1) + 2;
 
-    PUBNUB.publish({
-        channel : channel,
-        message : msg
-    });
+    // PUBNUB.publish({
+    //     channel : channel,
+    //     message : msg
+    // });
+    for (var i = 0; i < users.length; i++) {
+        PUBNUB.publish({
+            user: users[i],
+            message: msg
+        });
+    }
 
     msg['force'] = 1;
     user_updated(msg);
@@ -508,10 +515,16 @@ function send_click(e) {
 
     if (!(pos[1] && pos[0])) return 1;
 
-    PUBNUB.publish({
-        channel : channel,
-        message : msg
-    });
+    // PUBNUB.publish({
+    //     channel : channel,
+    //     message : msg
+    // });
+    for (var i = 0; i < users.length; i++) {
+        PUBNUB.publish({
+            user: users[i],
+            message: msg
+        });
+    }
 
     msg['force'] = 1;
     user_updated(msg);
@@ -539,7 +552,41 @@ function user_click(pos) {
 }
 
 // Receive Mice Friends
-PUBNUB.subscribe( { channel : channel }, user_updated );
+//PUBNUB.subscribe( { channel : channel }, user_updated );
+PUBNUB.here_now({
+    channel: channel,
+    callback: function (msg) {
+        console.log("Here now", msg);
+        for (var i = 0; i < msg.uuids.length; i++) {
+            users.push(msg.uuids[i]);
+            PUBNUB.createP2PConnection(msg.uuids[i]);
+            PUBNUB.subscribe({
+                user: msg.uuids[i],
+                callback: function (msg) {
+                    user_updated(msg);
+                }
+            });
+        }
+    }
+});
+
+PUBNUB.subscribe({
+    channel: channel,
+    callback: function (msg) {},
+    presence: function (event) {
+        console.log("User joined", event.uuid, event);
+        if (event.action === 'join') {
+            users.push(event.uuid);
+            PUBNUB.createP2PConnection(event.uuid);
+            PUBNUB.subscribe({
+                user: event.uuid,
+                callback: function (msg, event) {
+                    user_updated(msg);
+                }
+            });
+        }
+    }
+});
 
 // Capture Text Journey
 function keystroke( e, key ) {setTimeout(function(){

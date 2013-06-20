@@ -30,6 +30,12 @@
     }
   }
 
+  // Grabs an attribute from a node.
+  function attr( node, attribute, value ) {
+      if (value) node.setAttribute( attribute, value );
+      else return node && node.getAttribute && node.getAttribute(attribute);
+  }
+
   // Extend function for adding to existing objects
   function extend(obj, other) {
     for(var key in other) {
@@ -103,6 +109,12 @@
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (message.sdp != null) {
+          debug("Remote desc", PEER_CONNECTIONS[message.uuid]);
+
+          if (PEER_CONNECTIONS[message.uuid].connection.localDescription != null) {
+            PUBNUB.createP2PConnection(message.uuid, false);
+          }
+
           connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
 
             // Add ice candidates we might have gotten early.
@@ -154,7 +166,6 @@
     // This is the handler for when we get a SDP description from the WebRTC API.
     API['gotDescription'] = function (description, connection) {
       connection.connection.setLocalDescription(description);
-      debug("Sending description", connection.signalingChannel);
       connection.signalingChannel.send({
         "sdp": description
       });
@@ -177,17 +188,24 @@
           PEER_CONNECTIONS[uuid].dataChannel = event.channel;
 
           PEER_CONNECTIONS[uuid].dataChannel.onmessage = function (event) {
-            debug("Got data channel message", event.data);
+            var data = event.data;
+
+            // Try to automagically parse JSON data
+            try {
+              data = JSON.parse(event.data);
+            } catch (exception) {
+              // Do nothing
+            }
+
             if (PEER_CONNECTIONS[uuid].callback) {
-              PEER_CONNECTIONS[uuid].callback(event.data, event);
+              PEER_CONNECTIONS[uuid].callback(data, event);
             } else {
               // Store it in the history so the user can still get to it
-              PEER_CONNECTIONS[uuid].history.push(event.data);
+              PEER_CONNECTIONS[uuid].history.push(data);
             }
           };
 
-          PEER_CONNECTIONS[uuid].onaddstream = function (event) {
-            debug("Got data channel stream", event.data);
+          PEER_CONNECTIONS[uuid].connection.onaddstream = function (event) {
             if (PEER_CONNECTIONS[uuid].stream) {
               PEER_CONNECTIONS[uuid].stream(event.data, event);
             } else {
@@ -197,7 +215,6 @@
           };
 
           event.channel.onopen = function (event) {
-            debug("Connection state changed", event);
             PEER_CONNECTIONS[uuid].connected = true;
             self._peerPublish(uuid);
           };
@@ -221,8 +238,6 @@
 
         PEER_CONNECTIONS[uuid] = PEER_CONNECTIONS[uuid] || {};
         PEER_CONNECTIONS[uuid] = extend(PEER_CONNECTIONS[uuid], {
-          //stream: null,
-          //callback: null,
           connection: pc,
           candidates: [],
           connected: false,
@@ -253,7 +268,11 @@
       if (message.type === PUBLISH_TYPE.STREAM) {
         connection.connection.addStream(message.stream);
       } else if (message.type === PUBLISH_TYPE.MESSAGE) {
-        debug("Sending message", message);
+        // Convert to JSON automagically
+        if (typeof message.message === "object") {
+          message.message = JSON.stringify(message.message);
+        }
+
         connection.dataChannel.send(message.message);
       } else {
         error("Unrecognized RTC message type: " + message.type);
@@ -414,5 +433,18 @@
 
   // Also initialize the global PUBNUB object
   //initialize.call(PUBNUB);
+
+  var pdiv = document.querySelector("#pubnub") || {};
+
+  // CREATE A PUBNUB GLOBAL OBJECT
+  window.PUBNUB = PUBNUB.init({
+      'notest'        : 1,
+      'publish_key'   : attr( pdiv, 'pub-key' ),
+      'subscribe_key' : attr( pdiv, 'sub-key' ),
+      'ssl'           : !document.location.href.indexOf('https') ||
+                        attr( pdiv, 'ssl' ) == 'on',
+      'origin'        : attr( pdiv, 'origin' ),
+      'uuid'          : attr( pdiv, 'uuid' )
+  });
 
 })(window, PUBNUB);
