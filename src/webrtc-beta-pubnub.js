@@ -48,12 +48,22 @@
     return u;
   }
 
+  function transformOutgoingSdp(sdp) {
+    var splitted = sdp.split("b=AS:30");
+    var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
+    return newSDP;
+  }
+
   function extendAPI(PUBNUB, uuid) {
     // Store out API so we can extend it on all instances.
     var API = {},
         PREFIX = "pn_",               // Prefix for subscribe channels
         PEER_CONNECTIONS = {},        // Connection storage by uuid
-        RTC_CONFIGURATION = null,     // Global config for RTC's
+        RTC_CONFIGURATION = {
+          iceServers: [
+            { 'url': (IS_CHROME ? 'stun:stun.l.google.com:19302' : 'stun:23.21.150.121') }
+          ]
+        },     // Global config for RTC's
         PC_OPTIONS = (IS_CHROME ? {
           optional: [
           { RtpDataChannels: true }
@@ -116,12 +126,15 @@
               connection.connection.createAnswer(function (description) {
                 PUBNUB.gotDescription(description, connection);
               }, function (err) {
+                // Connection failed, so delete it from the table
+                delete PEER_CONNECTIONS[message.uuid];
                 error(err);
               });
             }
           }, function (err) {
-            // Maybe notify the peer that we can't communicate
-            error("Error setting remote description: " + err.message);
+            // Connection failed, so delete it from the table
+            delete PEER_CONNECTIONS[message.uuid];
+            error(err);
           });
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
@@ -153,6 +166,12 @@
     // PUBNUB._gotDescription
     // This is the handler for when we get a SDP description from the WebRTC API.
     API['gotDescription'] = function (description, connection) {
+      /***
+       * CHROME HACK TO GET AROUND BANDWIDTH LIMITATION ISSUES
+       ***/
+      if (IS_CHROME) {
+        description.sdp = transformOutgoingSdp(description.sdp);
+      }
       connection.connection.setLocalDescription(description);
       debug("Sending description", connection.signalingChannel);
       connection.signalingChannel.send({
@@ -167,7 +186,7 @@
         CONNECTION_QUEUE.push([uuid, offer]);
         return false;
       }
-
+      
       if (PEER_CONNECTIONS[uuid] == null || PEER_CONNECTIONS[uuid].initialized === false) {
         var pc = new RTCPeerConnection(RTC_CONFIGURATION, PC_OPTIONS),
             signalingChannel = new SignalingChannel(this, UUID, uuid),
@@ -232,7 +251,7 @@
         PEER_CONNECTIONS[uuid].history = PEER_CONNECTIONS[uuid].history || [];
 
         if (offer !== false) {
-          var dc = pc.createDataChannel("pubnub", { reliable: false });
+          var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
             channel: dc
           });
@@ -240,6 +259,8 @@
           pc.createOffer(function (description) {
             self.gotDescription(description, PEER_CONNECTIONS[uuid]);
           }, function (err) {
+            // Connection failed, so delete it from the table
+            delete PEER_CONNECTIONS[uuid];
             error(err);
           });
         }
