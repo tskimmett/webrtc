@@ -32,8 +32,12 @@
 
   // Grabs an attribute from a node.
   function attr( node, attribute, value ) {
-      if (value) node.setAttribute( attribute, value );
-      else return node && node.getAttribute && node.getAttribute(attribute);
+      if (value) {
+        node.setAttribute( attribute, value );
+      }
+      else {
+        return node && node.getAttribute && node.getAttribute(attribute);
+      }
   }
 
   // Extend function for adding to existing objects
@@ -55,9 +59,10 @@
   }
 
   function transformOutgoingSdp(sdp) {
-    var splitted = sdp.split("b=AS:30");
-    var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
-    return newSDP;
+    //var splitted = sdp.split("b=AS:30");
+    //var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
+    //return newSDP;
+    return sdp;
   }
 
   function extendAPI(PUBNUB, uuid) {
@@ -109,7 +114,9 @@
       debug("Got message", message);
       
       if (message.uuid != null) {
-        if (message.uuid === UUID) return;
+        if (message.uuid === UUID) {
+          return;
+        }
 
         var connected = PEER_CONNECTIONS[message.uuid] != null;
 
@@ -143,15 +150,15 @@
               }, function (err) {
                 // Connection failed, so delete it from the table
                 delete PEER_CONNECTIONS[message.uuid];
-                error(err);
+                error("Error creating answer: ", err);
               });
             }
           }, function (err) {
             // Maybe notify the peer that we can't communicate
-            error("Error setting remote description: ", arguments);
+            error("Error setting remote description: ", err);
           });
         } else if (message.rand) {
-          if (parseInt(message.rand) < connection.rand) {
+          if (parseInt(message.rand, 10) < connection.rand) {
             PEER_CONNECTIONS[message.uuid] = null;
             PUBNUB.createP2PConnection(message.uuid);
           }
@@ -240,7 +247,7 @@
             }
           };
 
-          event.channel.onopen = function (event) {
+          event.channel.onopen = function () {
             PEER_CONNECTIONS[uuid].connected = true;
             self._peerPublish(uuid);
           };
@@ -450,7 +457,7 @@
       'publish_key'   : attr( pdiv, 'pub-key' ),
       'subscribe_key' : attr( pdiv, 'sub-key' ),
       'ssl'           : !document.location.href.indexOf('https') ||
-                        attr( pdiv, 'ssl' ) == 'on',
+                        attr( pdiv, 'ssl' ) === 'on',
       'origin'        : attr( pdiv, 'origin' ),
       'uuid'          : attr( pdiv, 'uuid' )
   });
