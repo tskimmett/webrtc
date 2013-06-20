@@ -1,4 +1,4 @@
-PubNub WebRTC Beta API v0.3.0
+PubNub WebRTC Beta API v0.3.2
 ======
 
 PubNub now offers a new API for enhancing your WebRTC applications with the power of PubNub. Our WebRTC API will perform signaling between your users to allow them to connect with a RTCPeerConnection. From there you can use the PubNub API to enhance your peer application with features such as presence and history. PubNub Presence will allow you to find what users are connected to your application and give you a phonebook of people to connect to. You can also use history to see what connections you have made and reconnect to people from the past.
