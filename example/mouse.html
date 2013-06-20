@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PubNub - Mouse Speak</title>
+    <style>body, li, div, ol, p { font-family: "Helvetica Neue" }</style>
+</head>
+<body>
+  <!--
+  <br>
+  Start Typing to Talk with other Mice<br/>
+  <ol>
+      <li> Channel: <pre>mouse-speak</pre>
+      <li> Message: <pre>{ uuid : uuid, pos: [x,y], txt: "hello" }</pre>
+      <li> Events: <pre>mousemove, touchmove, touchstart, keyup</pre>
+      <li> Wait State to prevent network bashing.
+      <li> Send what has changed (mouse, text).
+  </ol>
+  -->
+
+  <!-- It's at the bottom! -->
+  <!-- pub-key and sub-key works with localhost -->
+  <!-- Paste this at the bottom of your HTML Page -->
+  <div id="pubnub" pub-key="pub-c-ea2942d3-03b0-4b78-8efe-280c13a360b9" sub-key="sub-c-4b20586c-ced1-11e2-93f7-02ee2ddab7fe"></div>
+  <script src="http://cdn.pubnub.com/pubnub-3.3.1.min.js"></script>
+  <script type="text/javascript" src="../src/webrtc-beta-pubnub.js"></script>
+  <script src="mouse-speak.js"></script>
+</body>
+</html>
