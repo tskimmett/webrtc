@@ -169,7 +169,9 @@
       /***
        * CHROME HACK TO GET AROUND BANDWIDTH LIMITATION ISSUES
        ***/
-      description.sdp = transformOutgoingSdp(description.sdp);
+      if (IS_CHROME) {
+        description.sdp = transformOutgoingSdp(description.sdp);
+      }
       connection.connection.setLocalDescription(description);
       debug("Sending description", connection.signalingChannel);
       connection.signalingChannel.send({
