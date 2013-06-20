@@ -560,7 +560,6 @@ PUBNUB.here_now({
         for (var i = 0; i < msg.uuids.length; i++) {
             if (msg.uuids[i] !== uuid) {
                 users.push(msg.uuids[i]);
-                //PUBNUB.createP2PConnection(msg.uuids[i]);
                 PUBNUB.subscribe({
                     user: msg.uuids[i],
                     callback: function (msg) {
@@ -580,7 +579,6 @@ PUBNUB.subscribe({
         if (event.action === 'join') {
             if (event.uuid !== uuid) {
                 users.push(event.uuid);
-                //PUBNUB.createP2PConnection(event.uuid);
                 PUBNUB.subscribe({
                     user: event.uuid,
                     callback: function (msg, event) {
