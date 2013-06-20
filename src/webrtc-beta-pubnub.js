@@ -1,3 +1,4 @@
+var DEBUG;
 (function (window, PUBNUB) {
   //"use strict";
 
@@ -59,7 +60,11 @@
     var API = {},
         PREFIX = "pn_",               // Prefix for subscribe channels
         PEER_CONNECTIONS = {},        // Connection storage by uuid
-        RTC_CONFIGURATION = null,     // Global config for RTC's
+        RTC_CONFIGURATION = {
+          iceServers: [
+            { 'url': (IS_CHROME ? 'stun:stun.l.google.com:19302' : 'stun:23.21.150.121') }
+          ]
+        },     // Global config for RTC's
         PC_OPTIONS = (IS_CHROME ? {
           optional: [
           { RtpDataChannels: true }
@@ -73,6 +78,7 @@
           STREAM: 1,
           MESSAGE: 2
         };
+    DEBUG = PEER_CONNECTIONS;
 
     // Expose PUBNUB UUID (Need to fix this in core)
     PUBNUB['UUID'] = uuid;
@@ -180,7 +186,7 @@
         CONNECTION_QUEUE.push([uuid, offer]);
         return false;
       }
-
+      
       if (PEER_CONNECTIONS[uuid] == null || PEER_CONNECTIONS[uuid].initialized === false) {
         var pc = new RTCPeerConnection(RTC_CONFIGURATION, PC_OPTIONS),
             signalingChannel = new SignalingChannel(this, UUID, uuid),
@@ -245,7 +251,7 @@
         PEER_CONNECTIONS[uuid].history = PEER_CONNECTIONS[uuid].history || [];
 
         if (offer !== false) {
-          var dc = pc.createDataChannel("pubnub", { reliable: false });
+          var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
             channel: dc
           });
