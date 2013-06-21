@@ -462,6 +462,38 @@
       };
     })(PUBNUB['history']);
 
+    // PUBNUB.peerConnection
+    // Returns the current peer connection if one exists
+    API['peerConnection'] = function (uuid, callback) {
+      if (callback) {
+        callback(PEER_CONNECTIONS[uuid].connection);
+      } else {
+        debug("PUBNUB.peerConnection should be called with a callback");
+      }
+    };
+
+    // PUBNUB.dataChannel
+    // Returns the current data channel if one exists
+    API['dataChannel'] = function (uuid, callback) {
+      if (callback) {
+        callback(PEER_CONNECTIONS[uuid].dataChannel);
+      } else {
+        debug("PUBNUB.dataChannel should be called with a callback");
+      }
+    };
+
+    // PUBNUB.configurePeerConnection
+    // Configures the options when creating a new peer connection internally
+    API['configurePeerConnection'] = function (rtcConfig, pcConfig) {
+      if (rtcConfig != null) {
+        RTC_CONFIGURATION = rtcConfig;
+      }
+
+      if (pcConfig != null) {
+        PC_OPTIONS = pcConfig;
+      }
+    };
+
     return extend(PUBNUB, API);
   }
 
