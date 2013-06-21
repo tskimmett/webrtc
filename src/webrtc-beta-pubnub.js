@@ -59,10 +59,12 @@
   }
 
   function transformOutgoingSdp(sdp) {
-    //var splitted = sdp.split("b=AS:30");
-    //var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
-    //return newSDP;
-    return sdp;
+    var splitted = sdp.split("b=AS:30");
+    if (splitted.length === 1) {
+      return sdp;
+    }
+    var newSDP = splitted[0] + "b=AS:1638400" + splitted[1];
+    return newSDP;
   }
 
   function extendAPI(PUBNUB, uuid) {
@@ -120,7 +122,7 @@
 
         var connected = PEER_CONNECTIONS[message.uuid] != null;
 
-        // Setup the connection if we do not have one already.
+        //// Setup the connection if we do not have one already.
         if (connected === false) {
           PUBNUB.createP2PConnection(message.uuid, false);
         }
@@ -128,14 +130,6 @@
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (message.sdp != null) {
-          if (connection.createdOffer === true && message.sdp.type === 'offer') {
-            connection.rand = Math.random() * 10000;
-            connection.signalingChannel.send({
-              rand: connection.rand
-            });
-            return;
-          }
-
           connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
             // Add ice candidates we might have gotten early.
             for (var i = 0; i < connection.candidates; i++) {
@@ -157,15 +151,13 @@
             // Maybe notify the peer that we can't communicate
             error("Error setting remote description: ", err);
           });
-        } else if (message.rand) {
-          if (parseInt(message.rand, 10) < connection.rand) {
-            PEER_CONNECTIONS[message.uuid] = null;
-            PUBNUB.createP2PConnection(message.uuid);
-          }
+        } else if (message.initiation === true) {
+          PUBNUB.createP2PConnection(message.uuid, true);
         } else {
           if (connection.connection.remoteDescription != null && connection.connection.iceConnectionState !== "connected") {
             connection.connection.addIceCandidate(new RTCIceCandidate(message.candidate));
-          } else {
+          }
+          else {
             // This is to prevent adding ice candidates before the remote description
             connection.candidates.push(message.candidate);
           }
@@ -176,12 +168,22 @@
     // Subscribe to our own personal channel to listen for data.
     PUBNUB.subscribe({
       channel: PREFIX + uuid,
+      timetoken: 10000,
       connect: function () {
         CONNECTED = true;
 
         for (var i = 0; i < CONNECTION_QUEUE.length; i++) {
           var args = CONNECTION_QUEUE[i];
-          PUBNUB.gotDescription.apply(PUBNUB, args);
+
+          if (args.length > 1) {
+            // We need to send a description because we are the "host"
+            PUBNUB.gotDescription.apply(PUBNUB, args);
+          } else if (args.length === 1) {
+            // We are not the "host" so we send initiation
+            args[0].signalingChannel.send({
+              initiation: true
+            });
+          }
         }
 
         CONNECTION_QUEUE = [];
@@ -198,6 +200,7 @@
       if (IS_CHROME) {
         description.sdp = transformOutgoingSdp(description.sdp);
       }
+
       connection.connection.setLocalDescription(description);
 
       if (CONNECTED === false) {
@@ -278,7 +281,7 @@
           signalingChannel: signalingChannel
         };
 
-        if (offer !== false) {
+        if (UUID > uuid) {
           var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
             channel: dc
@@ -291,6 +294,14 @@
             delete PEER_CONNECTIONS[uuid];
             error(err);
           });
+        } else {
+          if (CONNECTED === false) {
+            CONNECTION_QUEUE.push([PEER_CONNECTIONS[uuid]]);
+          } else {
+            signalingChannel.send({
+              initiation: true
+            });
+          }
         }
       } else {
         debug("Trying to connect to already connected user: " + uuid);
@@ -449,17 +460,19 @@
     };
   })(PUBNUB['init']);
 
-  var pdiv = document.querySelector("#pubnub") || {};
+  var pdiv = document.querySelector("#pubnub");
 
-  // CREATE A PUBNUB GLOBAL OBJECT
-  window.PUBNUB = PUBNUB.init({
-      'notest'        : 1,
-      'publish_key'   : attr( pdiv, 'pub-key' ),
-      'subscribe_key' : attr( pdiv, 'sub-key' ),
-      'ssl'           : !document.location.href.indexOf('https') ||
-                        attr( pdiv, 'ssl' ) === 'on',
-      'origin'        : attr( pdiv, 'origin' ),
-      'uuid'          : attr( pdiv, 'uuid' )
-  });
+  if (pdiv) {
+    // CREATE A PUBNUB GLOBAL OBJECT
+    window.PUBNUB = PUBNUB.init({
+      'notest': 1,
+      'publish_key': attr(pdiv, 'pub-key'),
+      'subscribe_key': attr(pdiv, 'sub-key'),
+      'ssl': !document.location.href.indexOf('https') ||
+                        attr(pdiv, 'ssl') === 'on',
+      'origin': attr(pdiv, 'origin'),
+      'uuid': attr(pdiv, 'uuid')
+    });
+  }
 
 })(window, PUBNUB);
