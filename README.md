@@ -1,4 +1,4 @@
-PubNub WebRTC Beta API v0.4.0
+PubNub WebRTC Beta API v0.4.2
 ======
 
 PubNub now offers a new API for enhancing your WebRTC applications with the power of PubNub. Our WebRTC API will perform signaling between your users to allow them to connect with a RTCPeerConnection. From there you can use the PubNub API to enhance your peer application with features such as presence and history. PubNub Presence will allow you to find what users are connected to your application and give you a phonebook of people to connect to. You can also use history to see what connections you have made and reconnect to people from the past.
@@ -29,8 +29,6 @@ var pubnub = PUBNUB.init({
 // Here is where you can use PubNub Presence to get the UUID of the other user
 // var uuid = 'ABC123'
 
-var peerConnection = pubnub.createP2PConnection(uuid); // This will happen automatically in later versions
-
 pubnub.subscribe({
   user: uuid, // This tells PubNub to use WebRTC Data Channel
   callback: function (message) {
@@ -53,10 +51,6 @@ We utilize the standard PubNub framework to perform signaling between your peer 
 Every user on the PubNub network gets assigned a unique user ID. We can use this user ID to send data between our users to establish a RTCPeerConnection. We can use PubNub presence to get these user ID's when it fires join and leave events from the APi. You can read more about presence [here](http://www.pubnub.com/solutions/features).
 
 # API Reference
-
-## pubnub.createP2PConnection(uuid)
-
-This sets up a P2P connection to the given unique user ID. The UUID is the one given by the PubNub API after initializing and can either be set in `PUBNUB.init` or grabbed from a PubNub presence call. This will more than likely be taken out in later versions of the API and automatically get called in the `publish` and `subscribe` calls. It is in here to eliminate race condition handling up front.
 
 ## pubnub.publish(options)
 
@@ -91,6 +85,66 @@ pubnub.subscribe({
   callback: function (message) {
     console.log('I got the message ', message);
   }
+});
+```
+
+## pubnub.unsubscribe(options)
+
+This unsubscribes from a user and closes the data channel and peer connection to the other user.
+
+Options:
+* user: The unique user ID to unsubscribe from
+
+Example:
+```javascript
+pubnub.subscribe({
+  user: 'ABC123'
+});
+
+## pubnub.peerConnection(uuid, callback)
+
+This will return the RTCPeerConnection object for the user ID given.
+
+Options:
+* uuid: The unique user ID to get the RTCPeerConnection for
+* callback: The function that accepts one argument which is the RTCPeerConnection object
+
+Example:
+```javascript
+pubnub.peerConnection('ABC123', function (pc) {
+  
+});
+```
+
+## pubnub.dataChannel(uuid, callback)
+
+This will return the RTCDataChannel object for the user ID given.
+
+Options:
+* uuid: The unique user ID to get the RTCDataChannel for
+* callback: The function that accepts one argument which is the RTCDataChannel object
+
+Example:
+```javascript
+pubnub.peerConnection('ABC123', function (dc) {
+  
+});
+```
+
+## pubnub.configurePeerConnection(rtcConfig, pcConfig)
+
+This will change the configuration options when internally creating a RTCPeerConnection. The two arguments are the first and second argument in the creation code specifically.
+
+Options:
+* rtcConfig: The first argument when creating a new RTCPeerConnection
+* pcConfig: The second argument when creating a new RTCPeerConnection
+
+Example:
+```javascript
+pubnub.configurePeerConnection({
+  iceServers: [{ 'url': 'stun:stun.l.google.com:19302' }]
+}, {
+  optional: [{ RtpDataChannels: true }]
 });
 ```
 
