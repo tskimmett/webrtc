@@ -100,6 +100,7 @@ Example:
 pubnub.subscribe({
   user: 'ABC123'
 });
+```
 
 ## pubnub.peerConnection(uuid, callback)
 
