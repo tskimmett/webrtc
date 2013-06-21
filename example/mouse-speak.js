@@ -566,11 +566,6 @@ PUBNUB.here_now({
                         user_updated(msg);
                     }
                 });
-                setTimeout(function () {
-                    PUBNUB.unsubscribe({
-                        user: msg.uuids[i]
-                    });
-                }, 10000);
             }
         }
     }
@@ -590,11 +585,6 @@ PUBNUB.subscribe({
                         user_updated(msg);
                     }
                 });
-                setTimeout(function () {
-                    PUBNUB.unsubscribe({
-                        user: event.uuid
-                    });
-                }, 10000);
             }
         }
     }
