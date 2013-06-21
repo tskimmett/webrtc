@@ -168,12 +168,22 @@
     // Subscribe to our own personal channel to listen for data.
     PUBNUB.subscribe({
       channel: PREFIX + uuid,
+      timetoken: 10000,
       connect: function () {
         CONNECTED = true;
 
         for (var i = 0; i < CONNECTION_QUEUE.length; i++) {
           var args = CONNECTION_QUEUE[i];
-          PUBNUB.gotDescription.apply(PUBNUB, args);
+
+          if (args.length > 1) {
+            // We need to send a description because we are the "host"
+            PUBNUB.gotDescription.apply(PUBNUB, args);
+          } else if (args.length === 1) {
+            // We are not the "host" so we send initiation
+            args[0].signalingChannel.send({
+              initiation: true
+            });
+          }
         }
 
         CONNECTION_QUEUE = [];
@@ -190,6 +200,7 @@
       if (IS_CHROME) {
         description.sdp = transformOutgoingSdp(description.sdp);
       }
+
       connection.connection.setLocalDescription(description);
 
       if (CONNECTED === false) {
@@ -270,8 +281,7 @@
           signalingChannel: signalingChannel
         };
 
-        //if (offer !== false) {
-        if ((UUID > uuid)) {
+        if (UUID > uuid) {
           var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
             channel: dc
@@ -284,11 +294,14 @@
             delete PEER_CONNECTIONS[uuid];
             error(err);
           });
-        }
-        else {
-          signalingChannel.send({
-            initiation: true
-          });
+        } else {
+          if (CONNECTED === false) {
+            CONNECTION_QUEUE.push([PEER_CONNECTIONS[uuid]]);
+          } else {
+            signalingChannel.send({
+              initiation: true
+            });
+          }
         }
       } else {
         debug("Trying to connect to already connected user: " + uuid);
