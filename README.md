@@ -104,7 +104,7 @@ pubnub.subscribe({
 
 ## pubnub.peerConnection(uuid, callback)
 
-This will return the RTCPeerConnection object for the user ID given.
+This will return the RTCPeerConnection object for the user ID given. If there is no RTCPeerConnection with the given user it will call the callback with `null`.
 
 Options:
 * uuid: The unique user ID to get the RTCPeerConnection for
@@ -119,7 +119,7 @@ pubnub.peerConnection('ABC123', function (pc) {
 
 ## pubnub.dataChannel(uuid, callback)
 
-This will return the RTCDataChannel object for the user ID given.
+This will return the RTCDataChannel object for the user ID given. If there is no RTCDataChannel with the given user it will call the callback with `null`.
 
 Options:
 * uuid: The unique user ID to get the RTCDataChannel for

@@ -466,7 +466,11 @@
     // Returns the current peer connection if one exists
     API['peerConnection'] = function (uuid, callback) {
       if (callback) {
-        callback(PEER_CONNECTIONS[uuid].connection);
+        if (PEER_CONNECTIONS[uuid] != null) {
+          callback(PEER_CONNECTIONS[uuid].connection);
+        } else {
+          callback(null);
+        }
       } else {
         debug("PUBNUB.peerConnection should be called with a callback");
       }
@@ -476,7 +480,11 @@
     // Returns the current data channel if one exists
     API['dataChannel'] = function (uuid, callback) {
       if (callback) {
-        callback(PEER_CONNECTIONS[uuid].dataChannel);
+        if (PEER_CONNECTIONS[uuid] != null) {
+          callback(PEER_CONNECTIONS[uuid].dataChannel);
+        } else {
+          callback(null);
+        }
       } else {
         debug("PUBNUB.dataChannel should be called with a callback");
       }
