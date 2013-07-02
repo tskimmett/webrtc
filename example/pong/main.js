@@ -4,7 +4,7 @@ var canvas = document.getElementById("pongTable"),
 /***
   MULTIPLAYER COMMUNICATION
  ***/
-var CHANNEL = "rtc-pong";
+var CHANNEL = "rtc-pong-test";
 var pubnub = PUBNUB.init({
   publish_key: 'pub-c-b2d901ee-2a0f-4d89-8cd3-63039aa6dd90',
   subscribe_key: 'sub-c-c74c7cd8-cc8b-11e2-a2ac-02ee2ddab7fe'
