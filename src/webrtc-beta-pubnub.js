@@ -58,6 +58,7 @@
     return u;
   }
 
+  // Hack for Chrome to allow adequate throughput over DataChannel
   function transformOutgoingSdp(sdp) {
     var splitted = sdp.split("b=AS:30");
     if (splitted.length === 1) {
@@ -281,6 +282,7 @@
           signalingChannel: signalingChannel
         };
 
+        // Compare UUIDs to guarantee we determine the 'leader' for the negotiating the connection
         if (UUID > uuid) {
           var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
