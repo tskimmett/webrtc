@@ -108,7 +108,9 @@
         message.uuid = selfUuid;
         message = JSON.stringify(message);
         //debug("Sending", message, otherUuid);
-        if (this.peerReady || force) {
+        if (this.peerReady === true || force === true) {
+          if (message.sdp) {
+          }
           pubnub.publish({
             channel: PREFIX + otherUuid,
             message: message
@@ -120,10 +122,12 @@
       this.initiate = function () {
         this.send({ initiation: true }, true);
       };
-      this.peerReady = function () {
+      this.peerIsReady = function () {
         this.peerReady = true;
         queue.unshift({ negotiationReady: true });
-        queue.forEach(this.send);
+        queue.forEach(function (msg) {
+          this.send(msg)
+        }.bind(this));
         queue = [];
       }
     }
@@ -149,7 +153,7 @@
         var connection = PEER_CONNECTIONS[message.uuid];
 
         if (!connection.signalingChannel.peerReady) {
-          connection.signalingChannel.peerReady();
+          connection.signalingChannel.peerIsReady();
         }
 
         if (message.sdp != null) {
@@ -274,7 +278,6 @@
           };
 
           PEER_CONNECTIONS[uuid].dataChannel.onopen = function () {
-            debug("DC CONNECTED");
             PEER_CONNECTIONS[uuid].connected = true;
             self._peerPublish(uuid);
           };

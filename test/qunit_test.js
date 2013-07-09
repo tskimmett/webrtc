@@ -77,20 +77,17 @@ asyncTest("channel presence", 1, function () {
 module("pubnub-webrtc-api", {
   setup: function () {
     // Give each test 5 seconds to complete
-    setTimeout(start, 20000);
+    setTimeout(start, 5000);
   }
 });
 asyncTest("subscribe/publish", API_MSG_SEQ.length, function () {
   var step = 0;
-  console.log("SOURCE SUBSCRIBING");
   P.subscribe({
     user: USER_2,
     callback: function (msg) {
-      start();
       // The partner will echo whatever we send, so it should be equal to
       deepEqual(msg, API_MSG_SEQ[step++]);
       if (API_MSG_SEQ[step]) {
-        console.log("Publishing: ", API_MSG_SEQ[step]);
         P.publish({
           user: USER_2,
           message: API_MSG_SEQ[step]
@@ -99,7 +96,6 @@ asyncTest("subscribe/publish", API_MSG_SEQ.length, function () {
     }
   });
 
-  console.log("Publishing: ", API_MSG_SEQ[step]);
   P.publish({
     user: USER_2,
     message: API_MSG_SEQ[step]
