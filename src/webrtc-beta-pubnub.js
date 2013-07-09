@@ -26,23 +26,23 @@
   var isDebug = true;
   function debug() {
     if (isDebug === true) {
-      console['log'].apply(console, arguments);
+      console['log'].apply(console, ["<" + window.location.pathname + ">"].concat(arguments));
     }
   }
 
   // Grabs an attribute from a node.
-  function attr( node, attribute, value ) {
-      if (value) {
-        node.setAttribute( attribute, value );
-      }
-      else {
-        return node && node.getAttribute && node.getAttribute(attribute);
-      }
+  function attr(node, attribute, value) {
+    if (value) {
+      node.setAttribute(attribute, value);
+    }
+    else {
+      return node && node.getAttribute && node.getAttribute(attribute);
+    }
   }
 
   // Extend function for adding to existing objects
   function extend(obj, other) {
-    for(var key in other) {
+    for (var key in other) {
       obj[key] = other[key];
     }
     return obj;
@@ -51,9 +51,9 @@
   // Putting UUID function here to work around non-exposed ID issues.
   function generateUUID() {
     var u = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,
-    function(c) {
-        var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
-        return v.toString(16);
+    function (c) {
+      var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
     });
     return u;
   }
@@ -98,30 +98,48 @@
     // SignalingChannel
     // The signaling channel handles sending data to and from a specific user channel.
     function SignalingChannel(pubnub, selfUuid, otherUuid) {
+      var queue = [];
+      this.peerReady = false;
       this.selfUuid = selfUuid;
       this.otherUuid = otherUuid;
       // The send function is here so we do not count a reference to PubNub preventing its destruction.
-      this.send = function (message) {
+      this.send = function (message, force) {
+        var strMsg = message;
         message.uuid = selfUuid;
         message = JSON.stringify(message);
-        debug("Sending", message, otherUuid);
-        pubnub.publish({
-          channel: PREFIX + otherUuid,
-          message: message
-        });
+        //debug("Sending", message, otherUuid);
+        if (this.peerReady || force) {
+          pubnub.publish({
+            channel: PREFIX + otherUuid,
+            message: message
+          });
+        } else {
+          queue.push(strMsg);
+        }
       };
+      this.initiate = function () {
+        this.send({ initiation: true }, true);
+      };
+      this.peerReady = function () {
+        this.peerReady = true;
+        queue.unshift({ negotiationReady: true });
+        queue.forEach(this.send);
+        queue = [];
+      }
     }
 
     function personalChannelCallback(message) {
       message = JSON.parse(message);
-      debug("Got message", message);
-      
+
       if (message.uuid != null) {
         if (message.uuid === UUID) {
           return;
         }
 
+        debug("Got message", message);
+
         var connected = PEER_CONNECTIONS[message.uuid] != null;
+        var leader = UUID > message.uuid;
 
         //// Setup the connection if we do not have one already.
         if (connected === false) {
@@ -130,6 +148,10 @@
 
         var connection = PEER_CONNECTIONS[message.uuid];
 
+        if (!connection.signalingChannel.peerReady) {
+          connection.signalingChannel.peerReady();
+        }
+
         if (message.sdp != null) {
           connection.connection.setRemoteDescription(new RTCSessionDescription(message.sdp), function () {
             // Add ice candidates we might have gotten early.
@@ -137,7 +159,7 @@
               connection.connection.addIceCandidate(new RTCIceCandidate(connection.candidates[i]));
               connection.candidates = [];
             }
-            
+
             // If we did not create the offer then create the answer.
             if (connection.connection.signalingState === 'have-remote-offer') {
               connection.connection.createAnswer(function (description) {
@@ -169,7 +191,8 @@
     // Subscribe to our own personal channel to listen for data.
     PUBNUB.subscribe({
       channel: PREFIX + uuid,
-      timetoken: 10000,
+      restore: false,
+      //timetoken: backfillTime * Math.pow(10, 7),
       connect: function () {
         CONNECTED = true;
 
@@ -178,12 +201,11 @@
 
           if (args.length > 1) {
             // We need to send a description because we are the "host"
+            args[1].signalingChannel.initiate();
             PUBNUB.gotDescription.apply(PUBNUB, args);
           } else if (args.length === 1) {
             // We are not the "host" so we send initiation
-            args[0].signalingChannel.send({
-              initiation: true
-            });
+            args[0].signalingChannel.initiate();
           }
         }
 
@@ -252,6 +274,7 @@
           };
 
           PEER_CONNECTIONS[uuid].dataChannel.onopen = function () {
+            debug("DC CONNECTED");
             PEER_CONNECTIONS[uuid].connected = true;
             self._peerPublish(uuid);
           };
@@ -282,7 +305,7 @@
           signalingChannel: signalingChannel
         };
 
-        // Compare UUIDs to guarantee we determine the 'leader' for the negotiating the connection
+        // Compare UUIDs to guarantee we determine the 'leader' for negotiating the connection
         if (UUID > uuid) {
           var dc = pc.createDataChannel("pubnub", (IS_CHROME ? { reliable: false } : {}));
           onDataChannelCreated({
@@ -300,9 +323,7 @@
           if (CONNECTED === false) {
             CONNECTION_QUEUE.push([PEER_CONNECTIONS[uuid]]);
           } else {
-            signalingChannel.send({
-              initiation: true
-            });
+            signalingChannel.initiate();
           }
         }
       } else {
