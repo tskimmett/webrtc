@@ -26,7 +26,7 @@
   var isDebug = true;
   function debug() {
     if (isDebug === true) {
-      console['log'].apply(console, ["<" + window.location.pathname + ">"].concat(arguments));
+      console['log'].apply(console, arguments);
     }
   }
 
