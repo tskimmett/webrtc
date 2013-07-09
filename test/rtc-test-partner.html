@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>RTC Test Partner</title>
+</head>
+<body>
+    <script src="http://cdn.pubnub.com/pubnub-3.5.1.min.js"></script>
+    <script src="../src/webrtc-beta-pubnub.js"></script>
+    <script type="text/javascript">
+      var P = PUBNUB.init({
+        publish_key: 'pub-c-b2d901ee-2a0f-4d89-8cd3-63039aa6dd90',
+        subscribe_key: 'sub-c-c74c7cd8-cc8b-11e2-a2ac-02ee2ddab7fe',
+        uuid: "USER_ECHO"
+      });
+      P.subscribe({
+        user: "USER_SOURCE",
+        callback: function (msg) {
+          // Echo
+          console.log("Echoing: ", msg);
+          P.publish({
+            user: "USER_SOURCE",
+            message: msg
+          });
+        }
+      });
+    </script>
+</body>
+</html>
