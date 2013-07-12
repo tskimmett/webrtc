@@ -3,13 +3,8 @@
 <head>
     <meta charset="utf-8">
     <title>Basic Test Suite</title>
-    <script src="http://cdn.pubnub.com/pubnub-3.5.1.min.js"></script>
-    <script src="../src/webrtc-beta-pubnub.js"></script>
     <!-- Load local QUnit. -->
     <link rel="stylesheet" href="libs/qunit.css" media="screen">
-    <script src="libs/qunit.js"></script>
-    <!-- Load local lib and tests. -->
-    <script src="qunit_test.js"></script>
 </head>
 <body>
     <iframe src="rtc-test-partner.html" style="display: none;"></iframe>
@@ -19,5 +14,12 @@
     <h2 id="qunit-userAgent"></h2>
     <ol id="qunit-tests"></ol>
     <div id="qunit-fixture">this had better work.</div>
+
+    <script src="http://cdn.pubnub.com/pubnub-3.5.1.min.js"></script>
+    <script src="../src/webrtc-beta-pubnub.js"></script>
+
+    <script src="libs/qunit.js"></script>
+    <!-- Load local lib and tests. -->
+    <script src="qunit_test.js"></script>
 </body>
 </html>

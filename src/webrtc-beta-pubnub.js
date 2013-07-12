@@ -126,10 +126,10 @@
         this.peerReady = true;
         queue.unshift({ negotiationReady: true });
         queue.forEach(function (msg) {
-          this.send(msg)
+          this.send(msg);
         }.bind(this));
         queue = [];
-      }
+      };
     }
 
     function personalChannelCallback(message) {
@@ -143,7 +143,6 @@
         debug("Got message", message);
 
         var connected = PEER_CONNECTIONS[message.uuid] != null;
-        var leader = UUID > message.uuid;
 
         //// Setup the connection if we do not have one already.
         if (connected === false) {
